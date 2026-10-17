@@ -1,0 +1,14 @@
+{
+  "name": "chat-multimodal-gemini-nano",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+  "start": "npx http-server ."
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
