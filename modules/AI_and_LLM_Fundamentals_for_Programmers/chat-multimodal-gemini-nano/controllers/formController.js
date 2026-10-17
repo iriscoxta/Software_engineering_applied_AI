@@ -84,8 +84,13 @@ export class FormController {
                 this.view.setOutput(translatedResponse);
             }
         } catch (error) {
-            console.error('Error during AI generation:', error);
-            this.view.setOutput(`Erro: ${error.message}`);
+            // Stopping the generation rejects the stream with an AbortError: keep the partial answer on screen
+            if (this.aiService.isAborted()) {
+                console.log('Generation stopped by user');
+            } else {
+                console.error('Error during AI generation:', error);
+                this.view.setOutput(`Erro: ${error.message}`);
+            }
         }
 
         this.toggleButton(false);
