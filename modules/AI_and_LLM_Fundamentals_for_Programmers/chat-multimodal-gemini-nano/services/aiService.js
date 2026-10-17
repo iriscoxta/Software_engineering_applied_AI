@@ -94,12 +94,24 @@ export class AIService {
     }
 
     async getParams() {
+        // LanguageModel.params() is no longer exposed to web pages in recent Chrome versions
+        if (typeof LanguageModel.params !== 'function') {
+            const fallbackParams = {
+                defaultTopK: 3,
+                maxTopK: 8,
+                defaultTemperature: 1,
+                maxTemperature: 2,
+            };
+            console.warn('LanguageModel.params() indisponível, usando valores padrão:', fallbackParams);
+            return fallbackParams;
+        }
+
         const params = await LanguageModel.params();
         console.log('Language Model Params:', params);
         return params;
     }
 
-        async* createSession(question, temperature, topK, file = null) {
+    async* createSession(question, temperature, topK, file = null) {
         this.abortController?.abort();
         this.abortController = new AbortController();
 
@@ -108,12 +120,23 @@ export class AIService {
             this.session.destroy();
         }
 
+        // Declare only the input types this prompt actually uses
+        const expectedInputs = [{ type: "text", languages: ["en"] }];
+        const contentArray = [{ type: "text", value: question }];
+
+        if (file) {
+            const fileType = file.type.split('/')[0];
+            if (fileType === 'image' || fileType === 'audio') {
+                expectedInputs.push({ type: fileType });
+                // Convert file to blob for proper handling
+                const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+                contentArray.push({ type: fileType, value: blob });
+                console.log(`Adding ${fileType} to prompt:`, file.name);
+            }
+        }
+
         this.session = await LanguageModel.create({
-            expectedInputs: [
-                { type: "text", languages: ["en"] },
-                { type: "audio" },
-                { type: "image" },
-            ],
+            expectedInputs,
             expectedOutputs: [{ type: "text", languages: ["en"] }],
             temperature: temperature,
             topK: topK,
@@ -128,19 +151,6 @@ export class AIService {
                 },
             ],
         });
-
-        // Build content array with text and optional file
-        const contentArray = [{ type: "text", value: question }];
-
-        if (file) {
-            const fileType = file.type.split('/')[0];
-            if (fileType === 'image' || fileType === 'audio') {
-                // Convert file to blob for proper handling
-                const blob = new Blob([await file.arrayBuffer()], { type: file.type });
-                contentArray.push({ type: fileType, value: blob });
-                console.log(`Adding ${fileType} to prompt:`, file.name);
-            }
-        }
 
         const responseStream = await this.session.promptStreaming(
             [
