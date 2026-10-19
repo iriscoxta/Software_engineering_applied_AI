@@ -14,7 +14,13 @@ export class View {
             filePreview: document.getElementById('file-preview'),
             fileUploadBtn: document.getElementById('file-upload-btn'),
             fileSelectedName: document.getElementById('file-selected-name'),
+            fileSelectedName: document.getElementById('file-selected-name'),
+            downloadPanel: document.getElementById('download-panel'),
+            downloadButton: document.getElementById('download-button'),
+            downloadProgress: document.getElementById('download-progress'),
+            downloadStatus: document.getElementById('download-status'),
         };
+        
     }
 
     setYear() {
@@ -68,6 +74,29 @@ export class View {
     showError(errors) {
         this.elements.output.innerHTML = errors.join('<br/>');
         this.elements.button.disabled = true;
+    }
+
+    showDownloadPanel() {
+        this.elements.downloadPanel.hidden = false;
+        this.elements.button.disabled = true;
+    }
+
+    setDownloadInProgress() {
+        this.elements.downloadButton.disabled = true;
+        this.elements.downloadButton.textContent = 'Baixando...';
+        this.elements.downloadProgress.hidden = false;
+        this.elements.downloadStatus.textContent = 'Iniciando download...';
+    }
+
+    updateDownloadProgress(fraction) {
+        const percent = Math.round(fraction * 100);
+        this.elements.downloadProgress.value = percent;
+        this.elements.downloadStatus.textContent = `Gemini Nano: ${percent}%`;
+    }
+
+    hideDownloadPanel() {
+        this.elements.downloadPanel.hidden = true;
+        this.elements.button.disabled = false;
     }
 
     setButtonToStopMode() {
@@ -145,5 +174,8 @@ export class View {
 
     onFormSubmit(callback) {
         this.elements.form.addEventListener('submit', callback);
+    }
+        onDownloadClick(callback) {
+        this.elements.downloadButton.addEventListener('click', callback, { once: true });
     }
 }

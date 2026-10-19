@@ -1,7 +1,12 @@
+const TEXT_INPUT = { type: "text", languages: ["en"] };
+const TEXT_OUTPUT = { type: "text", languages: ["en"] };
+const IMAGE_INPUT = { type: "image" };
+
 export class AIService {
     constructor() {
         this.session = null;
         this.abortController = null;
+        this.imageSupported = false;
     }
 
     async checkRequirements() {
@@ -13,84 +18,53 @@ export class AIService {
             errors.push("⚠️ Este recurso só funciona no Google Chrome ou Chrome Canary (versão recente).");
         }
 
+        if (!window.isSecureContext) {
+            errors.push("⚠️ As APIs de IA só funcionam em contexto seguro.");
+            errors.push(`Abra a aplicação por http://localhost:${location.port} em vez de ${location.host}.`);
+            return errors;
+        }
+
         if (!('LanguageModel' in self)) {
             errors.push("⚠️ As APIs nativas de IA não estão ativas.");
-            errors.push("Ative a seguinte flag em chrome://flags/:");
-            errors.push("- Prompt API for Gemini Nano (chrome://flags/#prompt-api-for-gemini-nano)");
+            errors.push("Ative as seguintes flags em chrome://flags/:");
+            errors.push("- Prompt API (chrome://flags/#prompt-api)");
+            errors.push("- Prompt API Multimodal Input (chrome://flags/#prompt-api-multimodal-input)");
             errors.push("Depois reinicie o Chrome e tente novamente.");
             return errors;
         }
 
-        // Check Translator availability
-        if ('Translator' in self) {
-            const translatorAvailability = await Translator.availability({
-                sourceLanguage: 'en',
-                targetLanguage: 'pt'
-            });
-            console.log('Translator Availability:', translatorAvailability);
-
-            if (translatorAvailability === 'no') {
-                errors.push("⚠️ Tradução de inglês para português não está disponível.");
-            }
-        } else {
-            errors.push("⚠️ A API de Tradução não está ativa.");
-            errors.push("Ative a seguinte flag em chrome://flags/:");
-            errors.push("- Translation API (chrome://flags/#translation-api)");
+        if (!('Translator' in self)) {
+            errors.push("⚠️ A API de Tradução (Translator) não está disponível neste navegador.");
         }
 
-        // Check Language Detection API
         if (!('LanguageDetector' in self)) {
-            errors.push("⚠️ A API de Detecção de Idioma não está ativa.");
-            errors.push("Ative a seguinte flag em chrome://flags/:");
-            errors.push("- Language Detection API (chrome://flags/#language-detector-api)");
-        }
-
-        if (errors.length > 0) {
-            return errors;
-        }
-
-        const availability = await LanguageModel.availability({ languages: ["en"] });
-        console.log('Language Model Availability:', availability);
-
-        if (availability === 'available') {
-            return null;
-        }
-
-        if (availability === 'unavailable') {
-            errors.push(`⚠️ O seu dispositivo não suporta modelos de linguagem nativos de IA.`);
-        }
-
-        if (availability === 'downloading') {
-            errors.push(`⚠️ O modelo de linguagem de IA está sendo baixado. Por favor, aguarde alguns minutos e tente novamente.`);
-        }
-
-        if (availability === 'downloadable') {
-            errors.push(`⚠️ O modelo de linguagem de IA precisa ser baixado, baixando agora... (acompanhe o progresso no terminal do chrome)`);
-            try {
-                const session = await LanguageModel.create({
-                    expectedInputLanguages: ["en"],
-                    monitor(m) {
-                        m.addEventListener('downloadprogress', (e) => {
-                            const percent = ((e.loaded / e.total) * 100).toFixed(0);
-                            console.log(`Downloaded ${percent}%`);
-                        });
-                    }
-                });
-                await session.prompt('Hello');
-                session.destroy();
-
-                // Re-check availability after download
-                const newAvailability = await LanguageModel.availability({ languages: ["en"] });
-                if (newAvailability === 'available') {
-                    return null; // Download successful
-                }
-            } catch (error) {
-                console.error('Error downloading model:', error);
-                errors.push(`⚠️ Erro ao baixar o modelo: ${error.message}`);
-            }
+            errors.push("⚠️ A API de Detecção de Idioma (LanguageDetector) não está disponível neste navegador.");
         }
 
         return errors.length > 0 ? errors : null;
+    }
+
+    async getModelAvailability() {
+        const [textAvailability, imageAvailability] = await Promise.all([
+            LanguageModel.availability({ expectedInputs: [TEXT_INPUT], expectedOutputs: [TEXT_OUTPUT] }),
+            LanguageModel.availability({ expectedInputs: [TEXT_INPUT, IMAGE_INPUT], expectedOutputs: [TEXT_OUTPUT] }),
+        ]);
+        console.log('Language Model availability:', { text: textAvailability, image: imageAvailability });
+
+        // When the device supports images, the model only counts as ready once the image part is downloaded too
+        this.imageSupported = imageAvailability !== 'unavailable';
+        return this.imageSupported ? imageAvailability : textAvailability;
+    }
+
+    async downloadModel(onProgress) {
+        const session = await LanguageModel.create({
+            expectedInputs: this.imageSupported ? [TEXT_INPUT, IMAGE_INPUT] : [TEXT_INPUT],
+            expectedOutputs: [TEXT_OUTPUT],
+            monitor(m) {
+                m.addEventListener('downloadprogress', (e) => onProgress(e.loaded));
+            },
+        });
+        session.destroy();
     }
 
     async getParams() {
@@ -121,7 +95,7 @@ export class AIService {
         }
 
         // Declare only the input types this prompt actually uses
-        const expectedInputs = [{ type: "text", languages: ["en"] }];
+        const expectedInputs = [TEXT_INPUT];
         const contentArray = [{ type: "text", value: question }];
 
         if (file) {
@@ -137,7 +111,7 @@ export class AIService {
 
         this.session = await LanguageModel.create({
             expectedInputs,
-            expectedOutputs: [{ type: "text", languages: ["en"] }],
+            expectedOutputs: [TEXT_OUTPUT],
             temperature: temperature,
             topK: topK,
             initialPrompts: [

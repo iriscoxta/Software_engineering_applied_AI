@@ -4,22 +4,41 @@ export class TranslationService {
         this.languageDetector = null;
     }
 
+    async getAvailability() {
+        const [translatorAvailability, detectorAvailability] = await Promise.all([
+            Translator.availability({ sourceLanguage: 'en', targetLanguage: 'pt' }),
+            LanguageDetector.availability(),
+        ]);
+        console.log('Translation availability:', { translator: translatorAvailability, detector: detectorAvailability });
+
+        if (translatorAvailability === 'unavailable' || detectorAvailability === 'unavailable') {
+            return 'unavailable';
+        }
+        if (translatorAvailability === 'available' && detectorAvailability === 'available') {
+            return 'available';
+        }
+        return 'downloadable';
+    }
+
     async initialize() {
         try {
-            this.translator = await Translator.create({
-                sourceLanguage: 'en',
-                targetLanguage: 'pt',
-                monitor(m) {
-                    m.addEventListener('downloadprogress', (e) => {
-                        const percent = ((e.loaded / e.total) * 100).toFixed(0);
-                        console.log(`Translator downloaded ${percent}%`);
-                    });
-                }
-            });
-            console.log('Translator initialized');
+            // Both are created at once so a download, when needed, starts inside the user's click
+            const [translator, languageDetector] = await Promise.all([
+                Translator.create({
+                    sourceLanguage: 'en',
+                    targetLanguage: 'pt',
+                    monitor(m) {
+                        m.addEventListener('downloadprogress', (e) => {
+                            console.log(`Translator downloaded ${Math.round(e.loaded * 100)}%`);
+                        });
+                    }
+                }),
+                LanguageDetector.create(),
+            ]);
 
-            this.languageDetector = await LanguageDetector.create();
-            console.log('Language Detector initialized');
+            this.translator = translator;
+            this.languageDetector = languageDetector;
+            console.log('Translator and Language Detector initialized');
 
             return true;
         } catch (error) {
@@ -28,7 +47,7 @@ export class TranslationService {
         }
     }
 
-        async translateToPortuguese(text) {
+    async translateToPortuguese(text) {
         if (!this.translator) {
             console.warn('Translator not available, returning original text');
             return text;

@@ -11,6 +11,14 @@
 <body>
     <div class="container">
         <h1>Chat Multimodal Gemini Nano</h1>
+            <div id="download-panel" class="download-panel" hidden>
+                <p class="download-message">
+                    Os modelos de IA precisam ser baixados para este navegador (alguns GB). Isso só acontece uma vez.
+                </p>
+                <button type="button" id="download-button" class="download-button">⬇️ Baixar modelos</button>
+                <progress id="download-progress" class="download-progress" max="100" hidden></progress>
+                <span id="download-status" class="download-status"></span>
+            </div>
 
         <form id="question-form">
             <div class="parameters">

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "start": "npx http-server ."
+  "start": "npx http-server . -c-1 -a 127.0.0.1"
   },
   "keywords": [],
   "type": "commonjs",
