@@ -278,7 +278,7 @@ After starting the infrastructure with `pnpm alumnus:infra:up`, you can integrat
 {
   "mcpServers": {
     "grafana": {
-			"type": "sse",
+			"type": "http",
 			"url": "http://localhost:8000/mcp"
 		}
 }
